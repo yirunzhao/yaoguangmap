@@ -1,21 +1,26 @@
 package com.example.baidumap;
 
+import androidx.annotation.LongDef;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.DialogInterface;
+import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListAdapter;
 import android.widget.Toast;
 
 import com.baidu.location.BDAbstractLocationListener;
 import com.baidu.location.BDLocation;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
 import com.baidu.mapapi.CoordType;
 import com.baidu.mapapi.SDKInitializer;
 import com.baidu.mapapi.map.BaiduMap;
@@ -23,11 +28,13 @@ import com.baidu.mapapi.map.MapBaseIndoorMapInfo;
 import com.baidu.mapapi.map.MapPoi;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
 import com.baidu.mapapi.map.MyLocationData;
 import com.baidu.mapapi.model.LatLng;
 import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
 import com.baidu.mapapi.search.poi.PoiDetailResult;
 import com.baidu.mapapi.search.poi.PoiDetailSearchResult;
+import com.baidu.mapapi.search.poi.PoiIndoorInfo;
 import com.baidu.mapapi.search.poi.PoiIndoorOption;
 import com.baidu.mapapi.search.poi.PoiIndoorResult;
 import com.baidu.mapapi.search.poi.PoiResult;
@@ -44,8 +51,11 @@ import com.baidu.mapapi.search.route.TransitRouteResult;
 import com.baidu.mapapi.search.route.WalkingRouteResult;
 
 import java.util.ArrayList;
+import java.util.List;
 
+import mapapi.overlayutil.IndoorPoiOverlay;
 import mapapi.overlayutil.IndoorRouteOverlay;
+import mapapi.overlayutil.PoiOverlay;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -56,10 +66,39 @@ public class MainActivity extends AppCompatActivity {
     private boolean isIndoor = false;
     private ListAdapter adapter;
     private PoiSearch mPoiSearch;
-    private PoiResult poiIndoorResult;
+    private PoiIndoorResult myPoiIndoorResult;
     private RoutePlanSearch mSearch;
-
+    private LocationClient mLocationClient;
     private Button btnSearch;
+    private EditText etKeyword;
+    private LatLng currentLocation,destinationLocation;
+    private MyLocationListener mLocationListener = new MyLocationListener();
+    private String currentFloor,currentBuildingID,currentBuildingName,destinationFloor;
+    private List<PoiIndoorInfo> indoorInfoList;
+
+    public class MyLocationListener extends BDAbstractLocationListener {
+
+        @Override
+        public void onReceiveLocation(BDLocation bdLocation) {
+            // 获取定位信息
+            double latitude = bdLocation.getLatitude();
+            double longitude = bdLocation.getLongitude();
+            String floor = bdLocation.getFloor();
+            String buildingID = bdLocation.getBuildingID();
+            String buildingName = bdLocation.getBuildingName();
+
+            // 赋值
+            currentLocation = new LatLng(latitude,longitude);
+            currentFloor = floor;
+            currentBuildingID = buildingID;
+            currentBuildingName = buildingName;
+            mLocationClient.startIndoorMode();
+
+            Log.d("定位lat","||"+latitude+"||");
+            Log.d("定位building floor","|||"+floor);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,15 +108,22 @@ public class MainActivity extends AppCompatActivity {
         initMapView();
         // 初始化室内地图
         initIndoorSettings();
-        // 初始化定位信息
+        // 初始化室内搜索信息
+        initIndoorRoutePlan();
+        // 初始化定位
+        initLocation();
+        // 初始化室内poi
+        initIndoorPoiSearch();
 
         btnSearch = findViewById(R.id.btn_search);
         btnSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                initIndoorRoutePlan();
+                startIndoorPoiSearch();
             }
         });
+
+        etKeyword = findViewById(R.id.et_keyword);
 
 
 
@@ -91,8 +137,8 @@ public class MainActivity extends AppCompatActivity {
         mBaiduMap = mMapView.getMap();
 
         //设置初始位置 39.917380 116.37978
-//        LatLng whu = new LatLng(30.533334,114.3617);
-        LatLng whu = new LatLng(39.917380,116.37978);
+        LatLng whu = new LatLng(30.533334,114.3617);
+//        LatLng whu = new LatLng(39.917380,116.37978);
         mBaiduMap.setMapStatus(MapStatusUpdateFactory.newLatLng(whu));
 
         //设置室内信息
@@ -100,8 +146,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initLocation(){
-        mBaiduMap.setMyLocationEnabled(true);
-
+        mLocationClient = new LocationClient(getApplicationContext());
+        mLocationClient.registerLocationListener(mLocationListener);
+        mLocationClient.start();
     }
 
     private void initIndoorSettings(){
@@ -151,7 +198,7 @@ public class MainActivity extends AppCompatActivity {
 
         builder.show();
     }
-    public void switchFloor(String floor){
+    private void switchFloor(String floor){
         MapBaseIndoorMapInfo.SwitchFloorError switchFloorError =  mBaiduMap.switchBaseIndoorMapFloor(floor, indoorMapInfo.getID()); // 切换楼层信息
         switch (switchFloorError) {
             case SWITCH_OK:
@@ -173,10 +220,10 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
-
     private void initIndoorRoutePlan(){
         mSearch = RoutePlanSearch.newInstance();
         OnGetRoutePlanResultListener listener = new OnGetRoutePlanResultListener() {
+
             @Override
             public void onGetWalkingRouteResult(WalkingRouteResult walkingRouteResult) {
 
@@ -202,7 +249,11 @@ public class MainActivity extends AppCompatActivity {
                 IndoorRouteOverlay overlay = new IndoorRouteOverlay(mBaiduMap);
                 if(indoorRouteResult.getRouteLines() != null && indoorRouteResult.getRouteLines().size() > 0){
                     Log.d("在室内搜索","进入了这里");
+                    // 把之前的overlay移除
+                    overlay.removeFromMap();
+                    // 设置data
                     overlay.setData(indoorRouteResult.getRouteLines().get(0));
+                    // 添加新的overlay
                     overlay.addToMap();
                 }else{
                     Toast.makeText(MainActivity.this, "这里是else", Toast.LENGTH_SHORT).show();
@@ -216,9 +267,15 @@ public class MainActivity extends AppCompatActivity {
 
             }
         };
+        // 设置listener
         mSearch.setOnGetRoutePlanResultListener(listener);
-        IndoorPlanNode startNode = new IndoorPlanNode(new LatLng(39.917380, 116.37978), "F1");
-        IndoorPlanNode endNode = new IndoorPlanNode(new LatLng(39.917239, 116.37955), "F6");
+    }
+    private void startIndoorRoutePlan(LatLng destination,String floor){
+        // 首先获取当前所在位置
+        IndoorPlanNode startNode = new IndoorPlanNode(currentLocation,currentFloor);
+        // 根据传入的位置设置endNode
+        IndoorPlanNode endNode = new IndoorPlanNode(destination, floor);
+        // 进行路径规划
         mSearch.walkingIndoorSearch(new IndoorRoutePlanOption()
                 .from(startNode)
                 .to(endNode));
@@ -229,7 +286,8 @@ public class MainActivity extends AppCompatActivity {
         mPoiSearch.setOnGetPoiSearchResultListener(new OnGetPoiSearchResultListener() {
             @Override
             public void onGetPoiResult(PoiResult poiResult) {
-                poiIndoorResult = poiResult;
+                PoiOverlay poiOverlay = new PoiOverlay(mBaiduMap);
+                poiOverlay.setData(poiResult);
             }
 
             @Override
@@ -244,10 +302,76 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onGetPoiIndoorResult(PoiIndoorResult poiIndoorResult) {
+                if(poiIndoorResult != null){
+                    myPoiIndoorResult = poiIndoorResult;
+                    indoorInfoList = poiIndoorResult.getArrayPoiInfo();
 
+                    MyIndoorPoiOverlay indoorPoiOverlay = new MyIndoorPoiOverlay(mBaiduMap);
+                    mBaiduMap.setOnMarkerClickListener(indoorPoiOverlay);
+                    indoorPoiOverlay.setData(poiIndoorResult);
+                    indoorPoiOverlay.addToMap();
+                    indoorPoiOverlay.zoomToSpan();
+                    Log.d("TAG", "onGetPoiIndoorResult: 调用成功");
+                    if(indoorInfoList == null){
+                        Toast.makeText(MainActivity.this, "indoorinfolist还是null", Toast.LENGTH_SHORT).show();
+                    }
+                }
+                else{
+                    Log.d("poi的listener","出了问题");
+                }
             }
         });
-//        mPoiSearch.searchPoiIndoor(new PoiIndoorOption().bid(poiIndoorResult.get))
+    }
+    public class MyIndoorPoiOverlay extends IndoorPoiOverlay{
+
+        /**
+         * 构造函数
+         *
+         * @param baiduMap 该 IndoorPoiOverlay 引用的 BaiduMap 对象
+         */
+        public MyIndoorPoiOverlay(BaiduMap baiduMap) {
+            super(baiduMap);
+        }
+
+        @Override
+        public boolean onPoiClick(int i) {
+            if(myPoiIndoorResult != null && myPoiIndoorResult.getArrayPoiInfo() != null){
+                PoiIndoorInfo info = myPoiIndoorResult.getArrayPoiInfo().get(i);
+                destinationLocation = info.latLng;
+                destinationFloor = info.floor;
+                Toast.makeText(MainActivity.this, "出错在MyIndoorOverlay", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+    }
+    private void startIndoorPoiSearch()
+    {
+        // 这是获得想去的poi的室内信息
+        MapBaseIndoorMapInfo indoorInfo = mBaiduMap.getFocusedBaseIndoorMapInfo();
+        if (indoorInfo != null){
+            PoiIndoorOption option = new PoiIndoorOption().poiIndoorWd(etKeyword.getText().toString()).poiIndoorBid(indoorInfo.getID());
+            boolean ok = mPoiSearch.searchPoiIndoor(option);
+            if(ok){
+                Log.d("搜索室内poi","成功");
+                StringBuilder sb = new StringBuilder();
+                if(indoorInfoList != null){
+                    sb.append(indoorInfoList.get(0).address);
+                    sb.append(indoorInfoList.get(1).address);
+                    sb.append(indoorInfoList.get(2).address);
+                    Log.d("室内poi的哈哈哈",sb.toString());
+                }
+
+            }else{
+                Log.d("搜索室内poi","失败");
+            }
+            Log.d("startindoorpoi","执行到这里了");
+            Log.d("室内id",indoorInfo.getID());
+        }else{
+            Log.d("关键词:",etKeyword.getText().toString());
+        }
     }
 
 
