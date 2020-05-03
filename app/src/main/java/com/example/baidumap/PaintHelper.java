@@ -71,6 +71,7 @@ public class PaintHelper {
                 .fontColor(fontColor)
                 .position(point);
         mBaiduMap.addOverlay(option);
+
     }
 
     //创建一个info window

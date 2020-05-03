@@ -27,6 +27,7 @@ import com.baidu.mapapi.SDKInitializer;
 import com.baidu.mapapi.map.BaiduMap;
 import com.baidu.mapapi.map.MapBaseIndoorMapInfo;
 import com.baidu.mapapi.map.MapPoi;
+import com.baidu.mapapi.map.MapStatusUpdate;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
 import com.baidu.mapapi.map.Marker;
@@ -140,7 +141,8 @@ public class MainActivity extends AppCompatActivity {
         //设置初始位置 39.917380 116.37978
         LatLng whu = new LatLng(30.533334,114.3617);
 //        LatLng whu = new LatLng(39.917380,116.37978);
-        mBaiduMap.setMapStatus(MapStatusUpdateFactory.newLatLng(whu));
+        mBaiduMap.setMapStatus(MapStatusUpdateFactory.newLatLngZoom(whu,18.0f));
+
 
         //设置室内信息
         //myPoiSearchResultListener = new MyPoiSearchResultListener(mBaiduMap);
@@ -374,11 +376,12 @@ public class MainActivity extends AppCompatActivity {
                 // 把poi再画上去
                 mPoiSearch.searchPoiIndoor(new PoiIndoorOption().poiIndoorWd(etKeyword.getText().toString()).poiIndoorBid(mBaiduMap.getFocusedBaseIndoorMapInfo().getID()));
                 // 画出起点终点以及导航
-                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,info.latLng,info.floor);
+//                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,info.latLng,info.floor);
+                PaintHelper.makeTextMarker(mBaiduMap,info.latLng,info.floor,255,12,0);
                 PaintHelper.makePointMarker(mBaiduMap,info.latLng,R.drawable.icon_en);
                 // 这里先设置成创意城的某一点 114.363585,30.532735
                 LatLng creativeCity = new LatLng(30.532735,114.363585);
-                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,creativeCity,currentFloor);
+//                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,creativeCity,"F1");
                 PaintHelper.makePointMarker(mBaiduMap,creativeCity,R.drawable.icon_st);
                 // 实际上应该这样
 //                PaintHelper.makePointMarker(mBaiduMap,currentLocation,R.drawable.icon_st);
