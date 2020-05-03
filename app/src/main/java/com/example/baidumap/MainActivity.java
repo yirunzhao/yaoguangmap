@@ -6,6 +6,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.DialogInterface;
+import android.graphics.Paint;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
@@ -339,13 +340,58 @@ public class MainActivity extends AppCompatActivity {
                 PoiIndoorInfo info = myPoiIndoorResult.getArrayPoiInfo().get(i);
                 destinationLocation = info.latLng;
                 destinationFloor = info.floor;
-                Toast.makeText(MainActivity.this, "出错在MyIndoorOverlay", Toast.LENGTH_SHORT).show();
+//                Toast.makeText(MainActivity.this, "出错在MyIndoorOverlay", Toast.LENGTH_SHORT).show();
+                // 导航
+//                startIndoorRoutePlan(destinationLocation,destinationFloor);
+                showNavigationDialog(info);
                 return true;
+
             }
             else{
                 return false;
             }
         }
+    }
+
+    private void showNavigationDialog(final PoiIndoorInfo info){
+        final AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
+        dialog.setTitle("商店信息");
+        StringBuilder sb = new StringBuilder();
+        sb.append("商店名称").append(info.name).append("\n");
+        sb.append("商店联系电话").append(info.phone).append("\n");
+        sb.append("商店地址").append(info.address).append("\n");
+        sb.append("商店人均消费").append(info.price).append("\n");
+        sb.append("商店折扣情况").append(info.discount).append("\n");
+        sb.append("商店楼层").append(info.floor).append("\n");
+
+        dialog.setMessage(sb.toString());
+
+        dialog.setPositiveButton("开始导航", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // 画出起点终点以及导航
+                PaintHelper.makePointMarker(mBaiduMap,info.latLng,R.drawable.icon_en);
+                // 这里先设置成创意城的某一点 114.363585,30.532735
+                LatLng creativeCity = new LatLng(30.532735,114.363585);
+                PaintHelper.makePointMarker(mBaiduMap,creativeCity,R.drawable.icon_st);
+                // 实际上应该这样
+//                PaintHelper.makePointMarker(mBaiduMap,currentLocation,R.drawable.icon_st);
+                // 然后画出一条直线
+                List<LatLng> line = new ArrayList<LatLng>();
+                line.add(creativeCity);
+                line.add(info.latLng);
+                PaintHelper.drawMyRoute(mBaiduMap,line);
+            }
+        });
+
+        dialog.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Toast.makeText(MainActivity.this,"你取消了导航", Toast.LENGTH_LONG);
+            }
+        });
+
+        dialog.show();
     }
     private void startIndoorPoiSearch()
     {
