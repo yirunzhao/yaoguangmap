@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
     private EditText etKeyword;
     private LatLng currentLocation,destinationLocation;
     private MyLocationListener mLocationListener = new MyLocationListener();
-    private String currentFloor,currentBuildingID,currentBuildingName,destinationFloor;
+    private String currentFloor="1F",currentBuildingID,currentBuildingName,destinationFloor;
     private List<PoiIndoorInfo> indoorInfoList;
 
     public class MyLocationListener extends BDAbstractLocationListener {
@@ -357,22 +357,28 @@ public class MainActivity extends AppCompatActivity {
         final AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this);
         dialog.setTitle("商店信息");
         StringBuilder sb = new StringBuilder();
-        sb.append("商店名称").append(info.name).append("\n");
-        sb.append("商店联系电话").append(info.phone).append("\n");
-        sb.append("商店地址").append(info.address).append("\n");
-        sb.append("商店人均消费").append(info.price).append("\n");
-        sb.append("商店折扣情况").append(info.discount).append("\n");
-        sb.append("商店楼层").append(info.floor).append("\n");
+        sb.append("商店名称: ").append(info.name).append("\n");
+        sb.append("商店联系电话: ").append(info.phone).append("\n");
+        sb.append("商店地址: ").append(info.address).append("\n");
+        sb.append("商店人均消费: ").append(info.price==-1.0?"暂无信息":info.price).append("\n");
+        sb.append("商店折扣情况: ").append(info.discount==-1?"暂无信息":info.discount).append("\n");
+        sb.append("商店楼层: ").append(info.floor).append("\n");
 
         dialog.setMessage(sb.toString());
 
         dialog.setPositiveButton("开始导航", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
+                // 清楚所有marker
+                mBaiduMap.clear();
+                // 把poi再画上去
+                mPoiSearch.searchPoiIndoor(new PoiIndoorOption().poiIndoorWd(etKeyword.getText().toString()).poiIndoorBid(mBaiduMap.getFocusedBaseIndoorMapInfo().getID()));
                 // 画出起点终点以及导航
+                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,info.latLng,info.floor);
                 PaintHelper.makePointMarker(mBaiduMap,info.latLng,R.drawable.icon_en);
                 // 这里先设置成创意城的某一点 114.363585,30.532735
                 LatLng creativeCity = new LatLng(30.532735,114.363585);
+                PaintHelper.makeInfoWindow(MainActivity.this,mBaiduMap,creativeCity,currentFloor);
                 PaintHelper.makePointMarker(mBaiduMap,creativeCity,R.drawable.icon_st);
                 // 实际上应该这样
 //                PaintHelper.makePointMarker(mBaiduMap,currentLocation,R.drawable.icon_st);
@@ -398,6 +404,8 @@ public class MainActivity extends AppCompatActivity {
         // 这是获得想去的poi的室内信息
         MapBaseIndoorMapInfo indoorInfo = mBaiduMap.getFocusedBaseIndoorMapInfo();
         if (indoorInfo != null){
+            // 清除所有marker
+            mBaiduMap.clear();
             PoiIndoorOption option = new PoiIndoorOption().poiIndoorWd(etKeyword.getText().toString()).poiIndoorBid(indoorInfo.getID());
             boolean ok = mPoiSearch.searchPoiIndoor(option);
             if(ok){
