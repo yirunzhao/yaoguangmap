@@ -31,7 +31,7 @@ public class PaintHelper {
         //构建MarkerOption
         OverlayOptions option = new MarkerOptions()
                 .position(point)
-                .icon(bitmap);
+                .icon(bitmap).zIndex(100);
         //在地图上添加Marker
         mBaiduMap.addOverlay(option);
     }
@@ -81,6 +81,7 @@ public class PaintHelper {
         Button button = new Button(activity.getApplicationContext());
         button.setBackgroundResource(R.drawable.button_info_window);
         button.setText(text);
+
 
         InfoWindow mInfowWindow = new InfoWindow(button,point,-100);
         mBaiduMap.showInfoWindow(mInfowWindow);

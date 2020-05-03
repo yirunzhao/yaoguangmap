@@ -139,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         mBaiduMap = mMapView.getMap();
 
         //设置初始位置 39.917380 116.37978
-        LatLng whu = new LatLng(30.533334,114.3617);
+        LatLng whu = new LatLng(30.532735,114.363585);
 //        LatLng whu = new LatLng(39.917380,116.37978);
         mBaiduMap.setMapStatus(MapStatusUpdateFactory.newLatLngZoom(whu,18.0f));
 
@@ -342,9 +342,6 @@ public class MainActivity extends AppCompatActivity {
                 PoiIndoorInfo info = myPoiIndoorResult.getArrayPoiInfo().get(i);
                 destinationLocation = info.latLng;
                 destinationFloor = info.floor;
-//                Toast.makeText(MainActivity.this, "出错在MyIndoorOverlay", Toast.LENGTH_SHORT).show();
-                // 导航
-//                startIndoorRoutePlan(destinationLocation,destinationFloor);
                 showNavigationDialog(info);
                 return true;
 
